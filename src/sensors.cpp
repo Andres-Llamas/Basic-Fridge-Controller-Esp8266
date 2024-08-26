@@ -12,6 +12,9 @@ void sensors::Initialize()
 
 void sensors::CalculateTemperature()
 {
+
+    /*. TODO: Set a treshold value in the temperature detection range for troubleshooting rraasons so that, if the temperature is unreasonably high or low doe to a malfunction. in the sensory sistem, then a volor code will be displayed as led which should be also installed in the next commit 
+    */
     if (sensors::CheckIfCanCheckSensors())
     {
         uint8_t i;
