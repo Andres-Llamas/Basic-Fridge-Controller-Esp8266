@@ -1,314 +1,239 @@
+#include <Arduino.h>
 #include "WifiServerManager.h"
 
-char WifiServerManager::*_wifiName;
-char WifiServerManager::*_wifiPassword;
-ESP8266WebServer _server(80);
+static ESP8266WebServer _server(80);
+static ESP8266HTTPUpdateServer _updater; 
+static const char* WIFI_FILE = "/wifi.json";
 
-void handle_root();
-void SetTimersForDefrostHandler();
-void StablishMDNSDirectionsAndBeginServer();
-void CheckDefrostRelayStateHandler();
-void CheckFreezerRelayStateHandler();
-void CheckSensorsHandler();
-void SetFridgeTemperatureHandler();
-void SetTemperatureThresholdHandler();
-void GetDefrostTimers();
+WifiServerManager::WifiServerManager(const char *wifiName, const char *wifiPassword)
+: _wifiName(wifiName), _wifiPassword(wifiPassword) {}
 
-void WifiServerManager::Initialize()
-{
-    Serial.println("ESP starts");
-    Serial.println(_wifiName);
+bool WifiServerManager::_loadCreds(String &ssid, String &pass) {
+  if (!LittleFS.exists(WIFI_FILE)) return false;
+  File f = LittleFS.open(WIFI_FILE, "r");
+  if (!f) return false;
+  String s = f.readString();
+  f.close();
+  int a = s.indexOf("\"ssid\":\""); if (a < 0) return false;
+  a += 8; int b = s.indexOf("\"", a); if (b < 0) return false;
+  ssid = s.substring(a, b);
+  a = s.indexOf("\"pass\":\""); if (a < 0) return false;
+  a += 8; b = s.indexOf("\"", a); if (b < 0) return false;
+  pass = s.substring(a, b);
+  return ssid.length() > 0;
+}
 
-    // Connect to your wi-fi modem
+bool WifiServerManager::_saveCreds(const String &ssid, const String &pass) {
+  File f = LittleFS.open(WIFI_FILE, "w");
+  if (!f) return false;
+  String json = String("{\"ssid\":\"") + ssid + "\",\"pass\":\"" + pass + "\"}";
+  f.print(json);
+  f.close();
+  return true;
+}
+
+void WifiServerManager::_startAPPortal() {
+  Serial.println("Starting SoftAP portal...");
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("Refri-Setup", "12345678"); // change password if desired
+  IPAddress ip = WiFi.softAPIP();
+  Serial.printf("AP IP: http://%s/\n", ip.toString().c_str());
+}
+
+void WifiServerManager::_connectWithStored() {
+  String ssid, pass;
+  if (_loadCreds(ssid, pass)) {
+    Serial.printf("Stored SSID: %s\n", ssid.c_str());
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid.c_str(), pass.c_str());
+    unsigned long t0 = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) {
+      delay(300); Serial.print(".");
+    }
+    Serial.println();
+  } else if (_wifiName && *_wifiName) { // optional fallback to compile-time creds
+    WiFi.mode(WIFI_STA);
     WiFi.begin(_wifiName, _wifiPassword);
-
-    // Check wi-fi is connected to wi-fi network
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(1000);
-        Serial.print(".");
+    unsigned long t0 = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 15000) {
+      delay(300); Serial.print(".");
     }
-    Serial.println("");
-    Serial.println("WiFi connected successfully");
-    Serial.print("Got IP: ");
-    Serial.println(WiFi.localIP()); // Show ESP32 IP on serial
+    Serial.println();
+  } else {
+    Serial.println("No stored WiFi creds.");
+  }
+}
 
-    StablishMDNSDirectionsAndBeginServer();
-    Serial.println("HTTP server started");
-    delay(100);
+String WifiServerManager::_contentTypeFor(const String& filename) {
+  if (filename.endsWith(".html") || filename.endsWith(".htm")) return "text/html";
+  if (filename.endsWith(".css")) return "text/css";
+  if (filename.endsWith(".js")) return "application/javascript";
+  if (filename.endsWith(".json")) return "application/json";
+  if (filename.endsWith(".png")) return "image/png";
+  if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
+  if (filename.endsWith(".ico")) return "image/x-icon";
+  if (filename.endsWith(".gz")) return "application/octet-stream";
+  return "text/plain";
+}
 
-    Serial.print("Connected! IP-Address: ");
-    Serial.println(WiFi.localIP()); // Displaying the IP Address
+bool WifiServerManager::_handleFileRead(const String& reqPath) {
+  String path = reqPath;
+  if (path.endsWith("/")) path += "index.html";
+  String pathGz = path + ".gz";
+  if (LittleFS.exists(pathGz)) {
+    File file = LittleFS.open(pathGz, "r");
+    _server.streamFile(file, _contentTypeFor(path));
+    file.close(); return true;
+  }
+  if (LittleFS.exists(path)) {
+    File file = LittleFS.open(path, "r");
+    _server.streamFile(file, _contentTypeFor(path));
+    file.close(); return true;
+  }
+  return false;
+}
 
-    if (MDNS.begin("refri"))
-    {
-        Serial.println("DNS started, available with: ");
-        Serial.println("http://refri.local/");
-        Serial.print("Or\nhttp://");
-        Serial.print(WiFi.localIP());
-        Serial.print(".local/");
+void WifiServerManager::Initialize() {
+  if (!LittleFS.begin()) Serial.println("LittleFS mount FAILED"); else Serial.println("LittleFS OK");
+
+  _connectWithStored();
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi STA connect failed; falling back to AP portal.");
+    _startAPPortal();
+  } else {
+    Serial.printf("WiFi connected: %s\n", WiFi.localIP().toString().c_str());
+  }
+
+  if (MDNS.begin("refri")) Serial.println("MDNS: http://refri.local"); else Serial.println("MDNS failed");
+
+  // -------- Core endpoints --------
+  _server.on("/sensors", HTTP_GET, [](){
+    String json = "{";
+    json += "\"temperature\":" + String(sensors::currentTemperature, 2) + ",";
+    json += "\"freezeActive\":" + String(Behaviours::isFreezingActive ? "true":"false") + ",";
+    json += "\"defrostActive\":" + String(Behaviours::isDefrostActive ? "true":"false") + ",";
+    json += "\"time\":\"" + String(TimeManager::currentTime.day) + " " + String(TimeManager::currentTime.hours) + ":" + String(TimeManager::currentTime.minutes) + ":" + String(TimeManager::currentTime.seconds) + "\"";
+    json += "}";
+    _server.send(200, "application/json", json);
+  });
+
+  _server.on("/getConfig", HTTP_GET, [](){
+    String json = "{";
+    json += "\"setpoint\":" + String(sensors::tempToSetFridge, 2) + ",";
+    json += "\"threshold\":" + String(sensors::tempToSetFridgeThreshold, 2) + ",";
+    json += "\"timers\":[";
+    for (int i=0;i<10;i++) {
+      clockTime a = defrostTimersToActivate[i];
+      clockTime b = defrostTimersToDeactivate[i];
+      json += "{\"start\":\"" + String(a.hours) + ":" + String(a.minutes) + "\",\"stop\":\"" + String(b.hours) + ":" + String(b.minutes) + "\"}";
+      if (i<9) json += ",";
     }
-    else
-        Serial.println("Error starting MDNS");
-}
+    json += "]}";
+    _server.send(200, "application/json", json);
+  });
 
-void StablishMDNSDirectionsAndBeginServer()
-{
-    _server.onNotFound([]()
-                       { _server.send(404, "text/plain", "Link was not found!"); });
+  _server.on("/setFrTemp", HTTP_GET, [](){
+    if (!_server.hasArg("temp")) { _server.send(400, "text/plain", "missing 'temp'"); return; }
+    float t = _server.arg("temp").toFloat();
+    if (t < -5.0f || t > 10.0f) { _server.send(400, "text/plain", "temp out of range (-5..10 C)"); return; }
+    sensors::tempToSetFridge = t;
+    _server.send(200, "text/plain", "ok");
+  });
 
-    _server.on("/", handle_root);
-    _server.on("/checkDef", CheckDefrostRelayStateHandler);
-    _server.on("/checkFreeze", CheckFreezerRelayStateHandler);
-    _server.on("/timersDef", SetTimersForDefrostHandler);
-    _server.on("/sensors", CheckSensorsHandler);
-    _server.on("/setFrTemp",SetFridgeTemperatureHandler);
-    _server.on("/setTrhTemp",SetTemperatureThresholdHandler);
-    _server.on("/getDef",GetDefrostTimers);
+  _server.on("/setTrhTemp", HTTP_GET, [](){
+    if (!_server.hasArg("temp")) { _server.send(400, "text/plain", "missing 'temp'"); return; }
+    float th = _server.arg("temp").toFloat();
+    if (th < 0.2f || th > 5.0f) { _server.send(400, "text/plain", "threshold out of range (0.2..5 C)"); return; }
+    sensors::tempToSetFridgeThreshold = th;
+    _server.send(200, "text/plain", "ok");
+  });
 
-    _server.begin();
-}
+  _server.on("/checkFreeze", HTTP_GET, [](){
+    Behaviours::SetFreezingState(!Behaviours::isFreezingActive);
+    _server.send(200, "text/plain", Behaviours::isFreezingActive ? "ON":"OFF");
+  });
 
-void CheckDefrostRelayStateHandler()
-{
+  _server.on("/checkDefrost", HTTP_GET, [](){
+    Behaviours::SetDefrostState(!Behaviours::isDefrostActive);
+    _server.send(200, "text/plain", Behaviours::isDefrostActive ? "ON":"OFF");
+  });
 
-    String message = "";
-    if (Behaviours::isDefrostActive)
-        message = "Defrost process is currently active";
-    else
-        message = "Defrost proccess is deactivated";
-    String HTML = "";
-    HTML += "<!DOCTYPE html>";
-    HTML += "<html>";
-    HTML += "   <body>";
-    HTML += "       <h1><center>" + message + "</center></h1>";
-    HTML += "       <a href=\"http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/\"><center>Return</center></a>";
-    HTML += "   </body>";
-    HTML += "</html>";
-    _server.send(200, "text/html", HTML);
-}
-
-void CheckFreezerRelayStateHandler()
-{
-    String message = "";
-    if (Behaviours::isFreezingActive)
-        message = "Freezing process is currently active";
-    else
-        message = "Freezing proccess is deactivated";
-    String HTML = "";
-    HTML += "<!DOCTYPE html>";
-    HTML += "<html>";
-    HTML += "   <body>";
-    HTML += "       <h1><center>" + message + "</center></h1>";
-    HTML += "       <a href=\"http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/\"><center>Return</center></a>";
-    HTML += "   </body>";
-    HTML += "</html>";
-    _server.send(200, "text/html", HTML);
-}
-
-void SetTimersForDefrostHandler()
-{
-    /*When the user enters "http://sisriego.local/timers", the user must write the parameters as.-
-    http://sisriego.local/timers?startHour=1&startMinute=2&stopHour=3&stopMinute=4&indexToSet=5. or whit IP address
-    http://192.168.100.23/timers?startHour=1&startMinute=2&stopHour=3&stopMinute=4&indexToSet=5
-    then this method will count how many parameters there are, then will iterate for each one, if the name matches with the
-    name of the variable from this method, then gets the value written from the user and stores it in a string, then after the
-    iteration is done, this method will convert each string to int and store then uin the "clockTime" structure in order to pass that
-    structure to the method "AddFreezerTimer" from "Behaviors.h"
-    */
-    String startHour = "";
-    String startMinute = "";
-    String stopHour = "";
-    String stopMinute = "";
-    String indexToSet = "";
-    clockTime startTime;
-    clockTime stopTime;
-    String message = "Number of args received :";
-    message += _server.args(); // Get number of parameters
-    message += "\n";           // Add a new line
-
-    for (int i = 0; i < _server.args(); i++)
-    {
-
-        message += "Arg nº" + (String)i + " -> "; // Include the current iteration value
-        message += _server.argName(i) + ":";      // Get the name of the parameter
-        message += _server.arg(i) + "\n";         // Get the value of the parameter
-        if (_server.argName(i).equals("startHour"))
-            startHour = _server.arg(i);
-        else if (_server.argName(i).equals("startMinute"))
-            startMinute = _server.arg(i);
-        else if (_server.argName(i).equals("stopHour"))
-            stopHour = _server.arg(i);
-        else if (_server.argName(i).equals("stopMinute"))
-            stopMinute = _server.arg(i);
-        else if (_server.argName(i).equals("indexToSet"))
-            indexToSet = _server.arg(i);
-        else
-        {
-            message = "Error at ";
-            message += i;
-            message += " parameter index. The parameter is incorrect";
-        }
+  _server.on("/timersDef", HTTP_GET, [](){
+    if (!_server.hasArg("indexToSet") || !_server.hasArg("startHour") || !_server.hasArg("startMinute") ||
+        !_server.hasArg("stopHour") || !_server.hasArg("stopMinute")) {
+      _server.send(400, "text/plain", "missing params");
+      return;
     }
-    startTime.hours = startHour.toInt();
-    startTime.minutes = startMinute.toInt();
-    startTime.seconds = 0; // his is because I will use only hours and minutes to control the system
-    stopTime.hours = stopHour.toInt();
-    stopTime.minutes = stopMinute.toInt();
-    stopTime.seconds = 0;
-    Behaviours::AddDefrostTimer(startTime, stopTime, indexToSet.toInt());
-    _server.send(200, "text/plain", message); // Response to the HTTP request
+    int idx = _server.arg("indexToSet").toInt();
+    if (idx < 0 || idx > 9) { _server.send(400, "text/plain", "indexToSet must be 0..9"); return; }
+    int sh = _server.arg("startHour").toInt();
+    int sm = _server.arg("startMinute").toInt();
+    int eh = _server.arg("stopHour").toInt();
+    int em = _server.arg("stopMinute").toInt();
+    if (sh<0||sh>23||eh<0||eh>23||sm<0||sm>59||em<0||em>59) {
+      _server.send(400, "text/plain", "invalid hour/minute"); return;
+    }
+    clockTime a{TimeManager::currentTime.day, sh, sm, 0};
+    clockTime b{TimeManager::currentTime.day, eh, em, 0};
+    Behaviours::AddDefrostTimer(a,b,idx);
+    _server.send(200, "text/plain", "ok");
+  });
+
+  // DIY Wi-Fi
+  _server.on("/wifiGet", HTTP_GET, [](){
+    String ssid="", pass="";
+    if (LittleFS.exists(WIFI_FILE)) {
+      File f = LittleFS.open(WIFI_FILE, "r");
+      String s = f.readString(); f.close();
+      int a = s.indexOf("\"ssid\":\""); if (a >= 0) { a += 8; int b = s.indexOf("\"", a); if (b > a) ssid = s.substring(a,b); }
+    }
+    String json = String("{\"ssid\":\"") + ssid + "\",\"pass\":\"********\"}";
+    _server.send(200, "application/json", json);
+  });
+
+  _server.on("/wifiSet", HTTP_ANY, [](){
+    if (!_server.hasArg("ssid") || !_server.hasArg("pass")) { _server.send(400, "text/plain", "missing ssid/pass"); return; }
+    String ssid = _server.arg("ssid");
+    String pass = _server.arg("pass");
+    if (ssid.length() < 1 || ssid.length() > 32 || pass.length() > 63) { _server.send(400, "text/plain", "invalid lengths"); return; }
+    File f = LittleFS.open(WIFI_FILE, "w");
+    if (!f) { _server.send(500, "text/plain", "save failed"); return; }
+    String json = String("{\"ssid\":\"") + ssid + "\",\"pass\":\"" + pass + "\"}";
+    f.print(json); f.close();
+    _server.send(200, "text/plain", "saved, rebooting...");
+    delay(500);
+    ESP.restart();
+  });
+
+  _server.on("/wifiScan", HTTP_GET, [](){
+    int n = WiFi.scanNetworks();
+    String json = "[";
+    for (int i=0;i<n;i++) {
+      json += String("{\"ssid\":\"") + WiFi.SSID(i) + "\",\"rssi\":" + WiFi.RSSI(i) + ",\"enc\":" + WiFi.encryptionType(i) + "}";
+      if (i<n-1) json += ",";
+    }
+    json += "]";
+    _server.send(200, "application/json", json);
+  });
+
+  _server.on("/wifiReset", HTTP_GET, [](){
+    LittleFS.remove(WIFI_FILE);
+    _server.send(200, "text/plain", "wifi creds cleared; rebooting...");
+    delay(500);
+    ESP.restart();
+  });
+
+  // Static files
+  _server.onNotFound([this](){
+    if (!_handleFileRead(_server.uri())) _server.send(404, "text/plain", "Not Found");
+  });
+
+  _updater.setup(&_server, "/update", "andreps", "MeLaPelasPrro"); //OTA
+  _server.begin();
+  Serial.println("HTTP server ready.");
 }
 
-void CheckSensorsHandler()
-{
-
-    String HTML = "";
-    HTML += "<!DOCTYPE html>";
-    HTML += "<html>";
-    HTML += "   <body>";
-    HTML += "       <h1><center>Sensors values</center></h1>";
-    HTML += "       <p><center> Temperature = ";
-    HTML += sensors::currentTemperature;
-    HTML += "c*</center></p>";
-    HTML += "       <a href=\"http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/\"><center>Return</center></a>";
-    HTML += "   </body>";
-    HTML += "</html>";
-    _server.send(200, "text/html", HTML);
-}
-
-void SetFridgeTemperatureHandler()
-{
-    String temp = "";
-    if (_server.arg("temp") == "")
-        temp = "Parameter not found";
-    else
-        temp = _server.arg("temp");
-
-    String HTML = "";
-    HTML += "<!DOCTYPE html>";
-    HTML += "<html>";
-    HTML += "   <body>";
-    HTML += "       <h1><center> changed Fridge temperature to " + temp + "</center></h1>";
-    HTML += "       <a href=\"http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/\"><center>Return</center></a>";
-    HTML += "   </body>";
-    HTML += "</html>";
-    sensors::tempToSetFridge = temp.toFloat();
-    Serial.print("Changed temperature for fridge to: ");
-    Serial.println(sensors::tempToSetFridge);
-    _server.send(200, "text/html", HTML);
-}
-
-void SetTemperatureThresholdHandler()
-{
-    String temp = "";
-    if (_server.arg("temp") == "")
-        temp = "Parameter not found";
-    else
-        temp = _server.arg("temp");
-
-    String HTML = "";
-    HTML += "<!DOCTYPE html>";
-    HTML += "<html>";
-    HTML += "   <body>";
-    HTML += "       <h1><center> changed Fridge temperature threshold to " + temp + "</center></h1>";
-    HTML += "       <a href=\"http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/\"><center>Return</center></a>";
-    HTML += "   </body>";
-    HTML += "</html>";
-    sensors::tempToSetFridgeThreshold = temp.toFloat();
-    Serial.print("Changed temperature threshold for fridge to: ");
-    Serial.println(sensors::tempToSetFridgeThreshold);
-    _server.send(200, "text/html", HTML);
-}
-
-void GetDefrostTimers()
-{
-    String index = "";
-    if (_server.arg("index") == "")
-        index = "Parameter not found";
-    else
-        index = _server.arg("index");
-    int val = index.toInt();
-    clockTime time = Behaviours::GetClockTimeFromList(val);
-    String HTML = "";
-    HTML += "<!DOCTYPE html>";
-    HTML += "<html>";
-    HTML += "   <body>";
-    HTML += "       <h1><center>Valve activation time from timer number " + index + "</center></h1>";
-    HTML += "       <h2><center>Hour: ";
-    HTML += time.hours;
-    HTML += "</center></h2>";
-    HTML += "       <h2><center>Minutes: ";
-    HTML += time.minutes;
-    HTML += "</center></h2>";
-    HTML += "       <h2><center>Seconds: ";
-    HTML += time.seconds;
-    HTML += "</center></h2>";
-    HTML += "       <a href=\"http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/\"><center>Return</center></a>";
-    HTML += "   </body>";
-    HTML += "</html>";
-    _server.send(200, "text/html", HTML);
-}
-
-void handle_root()
-{
-    String HTML = "";
-    HTML += "<!DOCTYPE html>";
-    HTML += "<html>";
-    HTML += "   <head>";
-    HTML += "       <title>ESP Input Form</title>";
-    HTML += "       <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
-    HTML += "   </head>";
-    HTML += "   <body>";
-    HTML += "       <h1><center> Fridge system </center></h1>";
-    HTML += "<a href=\"http://" + WiFi.localIP().toString() + "/checkDef\"><center>Check defrost active state</center></a>";
-    HTML += "<a href=\"http://" + WiFi.localIP().toString() + "/checkFreeze\"><center>Check Freezing active state</center></a>";
-    HTML += "       <a href=\"http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/sensors\"><center>Check Sensors values</center></a>";
-
-    HTML += "       <p><center> To set a defrost timer is with: http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/timersDef?startHour=1&startMinute=2&stopHour=3&stopMinute=4&indexToSet=5</center></p>";
-
-    HTML += "       <p><center> To check a defrost timer is with: http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/getDef?index=0</center></p>";
-
-    HTML += "       <p><center> To set the fridge temperature is with: http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/setFrTemp?temp=0</center></p>";
-
-    HTML += "       <p><center> To set the fridge temperature threshold is with: http://";
-    HTML += WiFi.localIP().toString();
-    HTML += "/setTrhTemp?temp=1</center></p>";
-
-    HTML += "   </body>";
-    HTML += "</html>";
-
-    Serial.println("entered the login page");
-    _server.send(200, "text/html", HTML);
-}
-
-WifiServerManager::WifiServerManager(char *wifiName, char *wifiPassword)
-{
-    _wifiName = wifiName;
-    _wifiPassword = wifiPassword;
-}
-
-void WifiServerManager::UpdateServerCLient()
-{
-    _server.handleClient();
+void WifiServerManager::UpdateServerCLient() {
+  _server.handleClient();
+  MDNS.update();
 }

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Fridge Controller</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Fridge Controller</h1>
+    <div id="status-dot" title="disconnected"></div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Status</h2>
+      <div class="grid">
+        <div><strong>Box Temp</strong><span id="boxTemp">--</span></div>
+        <div><strong>Setpoint</strong><span id="setpoint">--</span></div>
+        <div><strong>Threshold</strong><span id="threshold">--</span></div>
+        <div><strong>Compressor</strong><span id="compressor">--</span></div>
+        <div><strong>Defrost</strong><span id="defrost">--</span></div>
+        <div><strong>Time</strong><span id="time">--</span></div>
+      </div>
+      <button id="refresh">Refresh</button>
+    </section>
+
+    <section class="card">
+      <h2>Controls</h2>
+      <div class="controls">
+        <label>Setpoint (°C)
+          <input type="number" step="0.1" min="-5" max="10" id="inpSetpoint">
+        </label>
+        <button id="btnSetpoint">Apply</button>
+
+        <label>Threshold (°C)
+          <input type="number" step="0.1" min="0.2" max="5" id="inpThreshold">
+        </label>
+        <button id="btnThreshold">Apply</button>
+
+        <div class="row">
+          <button id="btnFreeze">Toggle Cooling</button>
+          <button id="btnDefrost">Toggle Defrost</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Defrost Timers</h2>
+      <div id="timers"></div>
+      <div class="timer-form">
+        <label>Index 0–9 <input type="number" id="idx" min="0" max="9" value="0"></label>
+        <label>Start (HH:MM) <input type="time" id="tStart" value="06:00"></label>
+        <label>Stop (HH:MM) <input type="time" id="tStop" value="06:20"></label>
+        <button id="btnSaveTimer">Save Timer</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Wi-Fi</h2>
+      <div class="controls">
+        <label>SSID <input id="wifiSsid" placeholder="Network name"></label>
+        <label>Password <input id="wifiPass" type="password" placeholder="••••••••"></label>
+        <button id="wifiSave">Save & Reboot</button>
+        <button id="wifiScan">Scan</button>
+      </div>
+      <div id="wifiList" class="grid"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="wifiReset">Factory-reset Wi-Fi</button>
+      </div>
+      <p class="muted">If device can’t connect, it will start AP <b>Refri-Setup</b> at <code>192.168.4.1</code>.</p>
+    </section>
+
+    <section class="card">
+      <h2>Maintenance</h2>
+      <p>Upload new firmware via the built-in updater. You’ll be prompted for a username/password (set in code).</p>
+      <a href="/update"><button>Firmware Update</button></a>
+    </section>
+  </main>
+
+  <footer>
+    <small>ESP8266 Fridge • <span id="host"></span></small>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

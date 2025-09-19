@@ -4,7 +4,7 @@
 
 clockTime TimeManager::currentTime;
 long _utcOffsetInSeconds = -21600; // The offset difference between the Time zones calculated by UTC*60*60
-char *daysOfTheWeek[7] = {"Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"};
+static const char *daysOfTheWeek[7] = {"Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"};
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", _utcOffsetInSeconds);
 

@@ -2,7 +2,7 @@
 #define CustomStructs_h
 struct clockTime
 {
-    char *day;
+    const char *day;
     int hours;
     int minutes;
     int seconds;
