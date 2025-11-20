@@ -1,20 +1,257 @@
-*{box-sizing:border-box}html,body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0b1021;color:#e6e9ef}
-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:#0f1733;border-bottom:1px solid #1e2a55;position:sticky;top:0;z-index:2}
-h1{font-size:20px;margin:0}
-#status-dot{width:10px;height:10px;border-radius:50%;background:#666;box-shadow:0 0 10px #666}
-main{max-width:900px;margin:24px auto;padding:0 16px;display:grid;gap:16px}
-.card{background:#111a3a;border:1px solid #223066;border-radius:16px;padding:16px;box-shadow:0 4px 16px rgba(0,0,0,.2)}
-h2{margin:0 0 12px;font-size:18px;color:#cbd6ff}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px}
-.grid div{background:#0e1734;border:1px solid #223066;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px}
-.grid strong{font-size:12px;color:#a9b6e6;font-weight:600}
-.grid span{font-size:20px}
-button{border:0;background:#2f49c4;color:white;padding:10px 14px;border-radius:12px;cursor:pointer}
-button:hover{filter:brightness(1.1)}
-.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;align-items:end}
-.controls label{display:flex;flex-direction:column;gap:6px;font-size:14px}
-.controls input{padding:10px;border-radius:10px;border:1px solid #223066;background:#0b1330;color:#e6e9ef}
-.row{display:flex;gap:10px}
-.timer-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px}
-footer{padding:16px;text-align:center;color:#95a0c7;opacity:.8}
-.muted{color:#95a0c7;font-size:12px;opacity:.8;margin-top:8px}
+* {
+    box-sizing: border-box
+}
+
+html,
+body {
+    margin: 0;
+    font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: #0b1021;
+    color: #e6e9ef
+}
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: #0f1733;
+    border-bottom: 1px solid #1e2a55;
+    position: sticky;
+    top: 0;
+    z-index: 2
+}
+
+h1 {
+    font-size: 20px;
+    margin: 0
+}
+
+#status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #666;
+    box-shadow: 0 0 10px #666
+}
+
+main {
+    max-width: 900px;
+    margin: 24px auto;
+    padding: 0 16px;
+    display: grid;
+    gap: 16px
+}
+
+.card {
+    background: #111a3a;
+    border: 1px solid #223066;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .2)
+}
+
+h2 {
+    margin: 0 0 12px;
+    font-size: 18px;
+    color: #cbd6ff
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px
+}
+
+.grid div {
+    background: #0e1734;
+    border: 1px solid #223066;
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px
+}
+
+.grid strong {
+    font-size: 12px;
+    color: #a9b6e6;
+    font-weight: 600
+}
+
+.grid span {
+    font-size: 20px
+}
+
+button {
+    border: 0;
+    background: #2f49c4;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 12px;
+    cursor: pointer
+}
+
+button:hover {
+    filter: brightness(1.1)
+}
+
+.controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    align-items: end
+}
+
+.controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 14px
+}
+
+.controls input {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #223066;
+    background: #0b1330;
+    color: #e6e9ef
+}
+
+.row {
+    display: flex;
+    gap: 10px
+}
+
+.timer-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 10px
+}
+
+footer {
+    padding: 16px;
+    text-align: center;
+    color: #95a0c7;
+    opacity: .8
+}
+
+.muted {
+    color: #95a0c7;
+    font-size: 12px;
+    opacity: .8;
+    margin-top: 8px
+}
+
+/* Status grid inside the main status card */
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.status-grid .label {
+    font-size: 12px;
+    color: #a9b6e6;
+    opacity: 0.8;
+}
+
+.status-grid .value {
+    font-size: 22px;
+    font-weight: 600;
+    color: #e6e9ef;
+}
+
+/* Badges for ON/OFF indicators */
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    text-align: center;
+    min-width: 60px;
+    border: 1px solid #223066;
+    background: #0e1734;
+    color: #e6e9ef;
+}
+
+.badge-on {
+    background: #1b6d34;
+    border-color: #2faa52;
+    color: #d9ffe1;
+}
+
+.badge-off {
+    background: #6d1b1b;
+    border-color: #aa2f2f;
+    color: #ffd9d9;
+}
+
+/* Form rows */
+.form-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.form-row label {
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 120px;
+}
+
+.form-row input {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #223066;
+    background: #0b1330;
+    color: #e6e9ef;
+}
+
+/*** Hint / info text ***/
+.hint {
+    color: #95a0c7;
+    font-size: 12px;
+    opacity: 0.8;
+    margin-top: 6px;
+}
+
+/* WiFi list styling from scan results */
+.wifi-list {
+    margin-top: 10px;
+    display: grid;
+    gap: 8px;
+}
+
+.wifi-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #0e1734;
+    border: 1px solid #223066;
+    cursor: pointer;
+}
+
+.wifi-item:hover {
+    background: #14204b;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#langSwitch {
+    padding: 4px 6px;
+    border-radius: 8px;
+    border: 1px solid #223066;
+    background: #0b1330;
+    color: #e6e9ef;
+    font-size: 12px;
+}

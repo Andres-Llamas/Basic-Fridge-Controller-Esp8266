@@ -5,9 +5,10 @@
 #include "sensors.h"
 #include "CustomStructs.h"
 #include "TimeManager.h"
-
-#define freezingRelayPin D5
-#define defrostRelayPin D7
+#include "defines.h"
+#include <LittleFS.h>
+#include <stdio.h>
+#include "DataLogger.h"
 
 class Behaviours
 {
@@ -23,8 +24,12 @@ public:
     static void CheckToStartOrStopDefrostBehaviour();
     static void AddDefrostTimer(clockTime timeToActivate, clockTime timeToStop, int indexToSet);
     static clockTime GetClockTimeFromList(int index);
+    static void GetDefrostTimerPair(int index, clockTime &start, clockTime &stop);
+
 private:
     static void CheckTimeForDefrostActivation();
+    static void WriteFreezingRelayPin(bool state);
+    static void WriteDefrostRelayPinState(bool state);
 };
 
 extern clockTime defrostTimersToActivate[10];

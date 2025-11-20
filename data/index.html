@@ -1,88 +1,183 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Fridge Controller</title>
   <link rel="stylesheet" href="/style.css">
 </head>
+
 <body>
   <header>
-    <h1>Fridge Controller</h1>
-    <div id="status-dot" title="disconnected"></div>
+    <h1 data-i18n="title">Fridge Controller</h1>
+    <div class="header-right">
+      <div id="status-dot" title="disconnected"></div>
+      <select id="langSwitch">
+        <option value="en">EN</option>
+        <option value="es">ES</option>
+      </select>
+    </div>
   </header>
 
   <main>
+    <!-- Status & Temperatures -->
     <section class="card">
-      <h2>Status</h2>
-      <div class="grid">
-        <div><strong>Box Temp</strong><span id="boxTemp">--</span></div>
-        <div><strong>Setpoint</strong><span id="setpoint">--</span></div>
-        <div><strong>Threshold</strong><span id="threshold">--</span></div>
-        <div><strong>Compressor</strong><span id="compressor">--</span></div>
-        <div><strong>Defrost</strong><span id="defrost">--</span></div>
-        <div><strong>Time</strong><span id="time">--</span></div>
-      </div>
-      <button id="refresh">Refresh</button>
-    </section>
-
-    <section class="card">
-      <h2>Controls</h2>
-      <div class="controls">
-        <label>Setpoint (°C)
-          <input type="number" step="0.1" min="-5" max="10" id="inpSetpoint">
-        </label>
-        <button id="btnSetpoint">Apply</button>
-
-        <label>Threshold (°C)
-          <input type="number" step="0.1" min="0.2" max="5" id="inpThreshold">
-        </label>
-        <button id="btnThreshold">Apply</button>
-
-        <div class="row">
-          <button id="btnFreeze">Toggle Cooling</button>
-          <button id="btnDefrost">Toggle Defrost</button>
+      <h2 data-i18n="status_title">Status</h2>
+      <div class="status-grid">
+        <div>
+          <span class="label" data-i18n="label_current_temp">Current Temperature</span>
+          <span id="currentTemp" class="value">-- °C</span>
+        </div>
+        <div>
+          <span class="label" data-i18n="label_setpoint">Setpoint</span>
+          <span id="setTemp" class="value">-- °C</span>
+        </div>
+        <div>
+          <span class="label" data-i18n="label_threshold">Threshold</span>
+          <span id="threshold" class="value">-- °C</span>
+        </div>
+        <div>
+          <span class="label" data-i18n="label_freezing">Freezing</span>
+          <span id="freezeState" class="badge">UNKNOWN</span>
+        </div>
+        <div>
+          <span class="label" data-i18n="label_defrost">Defrost</span>
+          <span id="defrostState" class="badge">UNKNOWN</span>
         </div>
       </div>
     </section>
 
+    <!-- Temperature Controls -->
     <section class="card">
-      <h2>Defrost Timers</h2>
-      <div id="timers"></div>
-      <div class="timer-form">
-        <label>Index 0–9 <input type="number" id="idx" min="0" max="9" value="0"></label>
-        <label>Start (HH:MM) <input type="time" id="tStart" value="06:00"></label>
-        <label>Stop (HH:MM) <input type="time" id="tStop" value="06:20"></label>
-        <button id="btnSaveTimer">Save Timer</button>
+      <h2 data-i18n="temp_title">Temperature Control</h2>
+      <div class="form-row">
+        <label for="setTempInput" data-i18n="label_setpoint_input">Setpoint (°C)</label>
+        <input id="setTempInput" type="number" step="0.1" placeholder="e.g. 2.0">
+        <button id="setTempBtn" data-i18n="btn_setpoint_apply">Apply Setpoint</button>
       </div>
+      <div class="form-row">
+        <label for="thresholdInput" data-i18n="label_threshold_input">Threshold (°C)</label>
+        <input id="thresholdInput" type="number" step="0.1" placeholder="e.g. 2.0">
+        <button id="thresholdBtn" data-i18n="btn_threshold_apply">Apply Threshold</button>
+      </div>
+
+      <div class="form-row">
+        <label data-i18n="label_freezing_toggle">Freezing</label>
+        <button id="freezeToggleBtn">Loading…</button>
+      </div>
+      <div class="form-row">
+        <label data-i18n="label_defrost_toggle">Defrost</label>
+        <button id="defrostToggleBtn">Loading…</button>
+      </div>
+
+      <p class="hint" data-i18n="hint_temp_auth">
+        Changing these values or toggling freezing/defrost will require the admin password.
+        Your browser will show a login popup the first time.
+      </p>
     </section>
 
+    <!-- Defrost Timers -->
     <section class="card">
-      <h2>Wi-Fi</h2>
-      <div class="controls">
-        <label>SSID <input id="wifiSsid" placeholder="Network name"></label>
-        <label>Password <input id="wifiPass" type="password" placeholder="••••••••"></label>
-        <button id="wifiSave">Save & Reboot</button>
-        <button id="wifiScan">Scan</button>
+      <h2 data-i18n="timers_title">Defrost Timers</h2>
+      <div class="form-row">
+        <label for="timerIndex" data-i18n="timers_label_index">Timer index (0–9)</label>
+        <select id="timerIndex">
+          <option value="0">Timer 0</option>
+          <option value="1">Timer 1</option>
+          <option value="2">Timer 2</option>
+          <option value="3">Timer 3</option>
+          <option value="4">Timer 4</option>
+          <option value="5">Timer 5</option>
+          <option value="6">Timer 6</option>
+          <option value="7">Timer 7</option>
+          <option value="8">Timer 8</option>
+          <option value="9">Timer 9</option>
+        </select>
+        <button id="timerLoadBtn" data-i18n="btn_timer_load">Load Timer</button>
       </div>
-      <div id="wifiList" class="grid"></div>
-      <div class="row" style="margin-top:10px">
-        <button id="wifiReset">Factory-reset Wi-Fi</button>
+
+      <div class="form-row">
+        <label data-i18n="timers_label_start">Start (HH:MM)</label>
+        <input id="startHour" type="number" min="0" max="23" placeholder="HH">
+        <span>:</span>
+        <input id="startMinute" type="number" min="0" max="59" placeholder="MM">
       </div>
-      <p class="muted">If device can’t connect, it will start AP <b>Refri-Setup</b> at <code>192.168.4.1</code>.</p>
+
+      <div class="form-row">
+        <label data-i18n="timers_label_stop">Stop (HH:MM)</label>
+        <input id="stopHour" type="number" min="0" max="23" placeholder="HH">
+        <span>:</span>
+        <input id="stopMinute" type="number" min="0" max="59" placeholder="MM">
+      </div>
+
+      <div class="form-row">
+        <button id="timerSaveBtn" data-i18n="btn_timer_save">Save Timer</button>
+      </div>
+
+      <p id="timerInfo" class="hint" data-i18n="timers_hint">
+        Select a timer index and click “Load Timer” to see current values.
+      </p>
     </section>
 
+    <!-- WiFi Configuration -->
     <section class="card">
-      <h2>Maintenance</h2>
-      <p>Upload new firmware via the built-in updater. You’ll be prompted for a username/password (set in code).</p>
-      <a href="/update"><button>Firmware Update</button></a>
+      <h2 data-i18n="wifi_title">WiFi & Security</h2>
+
+      <div class="form-row">
+        <label for="wifiSsid" data-i18n="wifi_label_ssid">WiFi SSID</label>
+        <input id="wifiSsid" type="text" placeholder="Router SSID">
+      </div>
+      <div class="form-row">
+        <label for="wifiPass" data-i18n="wifi_label_pass">WiFi Password</label>
+        <input id="wifiPass" type="password" placeholder="Router password">
+      </div>
+      <div class="form-row">
+        <label for="apPass" data-i18n="wifi_label_ap_pass">AP Password</label>
+        <input id="apPass" type="text" placeholder="AP password (fallback)">
+      </div>
+      <div class="form-row">
+        <label for="uiPass" data-i18n="wifi_label_ui_pass">UI Password</label>
+        <input id="uiPass" type="password" placeholder="Admin UI password">
+      </div>
+
+      <div class="form-row">
+        <button id="wifiSave" data-i18n="btn_wifi_save">Save & Reboot</button>
+        <button id="wifiScan" data-i18n="btn_wifi_scan">Scan Networks</button>
+        <button id="wifiReset" data-i18n="btn_wifi_reset">Clear Config</button>
+      </div>
+
+      <p id="wifiStatus" class="hint" data-i18n="msg_wifi_loading">Loading WiFi configuration…</p>
+      <div id="wifiList" class="wifi-list"></div>
+    </section>
+
+    <!-- Graphs -->
+    <section class="card">
+      <h2>History</h2>
+      <button id="downloadTemp">Download temp CSV</button>
+      <button id="downloadFreeze">Download freeze CSV</button>
+      <canvas id="tempChart" style="width:100%;height:200px;"></canvas>
+    </section>
+
+    <!-- Maintenance -->
+    <section class="card">
+      <h2 data-i18n="maint_title">Maintenance</h2>
+      <p data-i18n="maint_text">
+        Upload new firmware via the built-in updater. You’ll be prompted for the admin user and password.
+      </p>
+      <a href="/update"><button data-i18n="maint_btn">Firmware Update</button></a>
     </section>
   </main>
 
   <footer>
-    <small>ESP8266 Fridge • <span id="host"></span></small>
+    <small>
+      <span data-i18n="footer_text">ESP8266 Fridge</span>
+      &nbsp;•&nbsp;
+      <span id="host"></span>
+    </small>
   </footer>
 
   <script src="/app.js"></script>
 </body>
+
 </html>
