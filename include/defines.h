@@ -22,8 +22,9 @@
 #define FREEZE_FILE "/freeze_log.csv"
 
 // Data logs
-#define MAX_HOURLY_SAMPLES 336  //24 * 14; 2 weeks
+#define MAX_HOURLY_SAMPLES 336 // 24 * 14; 2 weeks
 #define MAX_DAILY_SAMPLES 14
 
-//Cycles
-#define MAX_DEFROST_TIME 30
+// Cycles
+#define MAX_DEFROST_TIME 30 // in minutes
+#define MIN_DEFROST_TIME 10 // in minutes

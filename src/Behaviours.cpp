@@ -203,8 +203,43 @@ void Behaviours::CheckToStartOrStopDefrostBehaviour()
     CheckTimeForDefrostActivation();
 }
 
-// Accesed trhough wifi manager
+bool CheckTimersDifference(clockTime start, clockTime stop)
+{
+    int s1 = start.hours * 3600 + start.minutes * 60 + start.seconds;
+    int s2 = stop.hours * 3600 + stop.minutes * 60 + stop.seconds;
 
+    int max = MAX_DEFROST_TIME * 60; // allowed max duration in seconds
+    int min = MIN_DEFROST_TIME * 60;
+    int diff = s2 - s1;
+
+    // If negative, this means the stop time is next day.
+    if (diff < 0)
+    {
+        diff += 24 * 3600; // add 24h
+    }
+
+    if (diff == 0)
+    {
+        Serial.println("The timers difference is 0");
+        return false;
+    }
+
+    if (diff < min)
+    {
+        Serial.println("Defrost duration too short than " + String(MIN_DEFROST_TIME) + " minutes");
+        return false;
+    }
+
+    if (diff > max)
+    {
+        Serial.println("The timers difference is greater than " + String(MAX_DEFROST_TIME) + " minutes");
+        return false;
+    }
+
+    return true;
+}
+
+// Accesed trhough wifi manager
 void Behaviours::AddDefrostTimer(clockTime timeToActivate, clockTime timeToStop, int indexToSet)
 {
     // this method adds clockTime structures which contain day, hours, minutes and seconds to the list in order to make a
@@ -213,6 +248,11 @@ void Behaviours::AddDefrostTimer(clockTime timeToActivate, clockTime timeToStop,
     if (indexToSet < 0 || indexToSet >= 10)
     {
         Serial.println("AddDefrostTimer: index out of range");
+        return;
+    }
+    if (!CheckTimersDifference(timeToActivate, timeToStop))
+    {
+        Serial.println("ERROR SAVING TIMER");
         return;
     }
 

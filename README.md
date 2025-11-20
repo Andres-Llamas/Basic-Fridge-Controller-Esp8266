@@ -12,6 +12,16 @@ on your own.
 
 ## ✨ Features
 
+#### v1.5
+- **Historical data**
+   - Records temperature each hour and deletes records after 2 weeks (customizable)
+   - Records activation times per day
+   - Downloadable csv of both via the .local page
+- **Log-in security**
+   - Need to enter username and password in order to change important settings or activate/deactivate freezing through the .local page
+   - This is done with HTTP Basic authentication. Since this project is not intended to be on the web, I figured this would be enough to at least keep kids away from messing around the settings and potentially set the fridge on fire
+
+#### v1.0
 - **Cooling & defrost control** with hysteresis and timer scheduling
 - **Anti short-cycle protection** (5 min min-off, 90 s min-on, 10 s boot delay)
 - **Non-blocking defrost arm** (UI stays responsive)
@@ -35,17 +45,28 @@ on your own.
   WifiServerManager.cpp
   TimeManager.cpp
   sensors.cpp
+  DataLogger.cpp
+  utilities.cpp
 /include
   Behaviours.h
   WifiServerManager.h
   TimeManager.h
   sensors.h
   CustomStructs.h
+  DataLogger.h
+  defines.h
+  utilities.h  
 /data
   index.html
   style.css
   app.js
+  confidential.json
+  config.json
+  freeze_log.csv
+  temp_log.csv
+  timers.txt
   (gzipped versions for faster serving)
+
 ```
 
 ---
@@ -119,6 +140,7 @@ Wiring based on the 200d5940g014 board
 | Defrost relay  | D7 (GPIO13)   | Active HIGH/LOW depending on relay module |
 | Status LED     | Onboard LED   | Optional |
 
+
 ### Schematic (simplified)
 
 ```
@@ -135,6 +157,29 @@ Wiring based on the 200d5940g014 board
 ```
 
 ---
+### Images
+
+<p style="text-align: center;">Original Board</p>
+<div style="text-align: center;">
+    <img src="/CircuitImages/tarjeta.jpg" alt="Centered image" width="400" height="400">
+</div>
+
+<p style="font-size:12px;">image obtained from https://www.redhogar.com.mx/refaccion/TARJETA-ELECTRONICA-BASIC--200D9607G006-USAR-225D7291G007-200D5940G003-111-MABE-DISPENSADORES-DE-AGUA-TARJETAS-ELECTRONICAS-COMPONE?srsltid=AfmBOoq7mKmrrJ0co7hQOVRbt085pCX0PB2PfYERvnLQNunYEsgzfeVg</p>
+
+<p style="text-align: center;">My board</p>
+
+<div style="text-align: center;">
+    <img src="/CircuitImages/customBoardFront.jpeg" alt="Centered image" width="400" height="400">    
+    <img src="/CircuitImages/customFrontBack.jpeg" alt="Centered image" width="400" height="400">    
+</div>
+
+<p style="font-size:14px;"> Made from a generic two relay module and the board from an old 5v phone charger</p>
+<p style="font-size:14px;">I know my board is ugly asfk, and is the most unprofessional thing of the world, but it works and have been working for more than one year, so it works for me</p>
+
+---
+
+
+---
 
 ## 🌐 Web UI
 
@@ -142,8 +187,9 @@ Wiring based on the 200d5940g014 board
 - Dashboard sections:
   - **Status**: temperature, compressor, defrost, time
   - **Controls**: adjust setpoint & threshold, toggle states
-  - **Timers**: define up to 10 defrost schedules
+  - **Timers**: define up to 10 defrost schedules  
   - **Wi-Fi**: set/scan/reset network credentials
+  - **History** watch and download the temperature and on cycles
   - **Maintenance**: firmware OTA upload
 
 ---
@@ -174,8 +220,8 @@ Wiring based on the 200d5940g014 board
 ---
 
 ## 📝 Stuff that maybe I'll add to the future
-- Historical charts (temperature/time series)
-- Authenticated dashboard
+- Historical charts (temperature/time series) ✅
+- Authenticated dashboard (HTTP Basic auth) ✅
 - Configurable compressor protection values
 - ESP32 port (more memory, BLE)
 
